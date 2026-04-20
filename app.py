@@ -99,22 +99,41 @@ THEME_CSS = """
         border-radius: 16px;
         border: 1px solid #2d2d44;
     }
-    /* Fix for broken sidebar icon text */
-    button[kind="header"] { visibility: hidden !important; }
-    /* Optional: Ensure the button area is still clickable if needed */
+    /* 1. Remove the "double_arrow_right" text artifact entirely */
+    button[kind="header"] {
+        color: transparent !important;
+        background: transparent !important;
+    }
+    /* 2. Style the new Menu Emoji precisely */
     button[kind="header"]:after {
-        content: '☰';
+        content: '☰'; 
         visibility: visible;
         display: block;
         position: absolute;
-        color: white;
-        font-size: 24px;
-        top: 10px;
-        left: 10px;
+        color: #00d4ff !important; /* Matches your ASUS TUF theme */
+        font-size: 28px;
+        top: 12px;
+        left: 15px;
+        font-weight: bold;
     }
-    /* Expanded Camera Area for Receipt Scanning */
-    div[data-testid="stCameraInput"] { width: 100% !important; min-height: 550px !important; }
-    video { object-fit: cover !important; border-radius: 12px; }
+    /* 3. Force Camera Window Expansion & Clarity */
+    div[data-testid="stCameraInput"] {
+        width: 100% !important;
+        max-width: 100% !important;
+        padding: 0 !important;
+    }
+    div[data-testid="stCameraInput"] > div {
+        width: 100% !important;
+        min-height: 600px !important; /* Significantly taller for long receipts */
+    }
+    /* Ensure the video feed fills the window without blurring */
+    video {
+        object-fit: cover !important;
+        width: 100% !important;
+        height: 100% !important;
+        min-height: 600px !important;
+        border-radius: 12px;
+    }
 </style>
 """
 
