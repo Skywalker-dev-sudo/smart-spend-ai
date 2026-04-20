@@ -48,76 +48,30 @@ if os.name == 'nt':
 # ─── RESPONSIVE THEME ──────────────────────────────────────────────────────────
 THEME_CSS = """
 <style>
-    html, body, [class*="st-"] { font-family: 'Inter', -apple-system, sans-serif; }
-    div[data-testid="stMetric"] {
-        background: linear-gradient(145deg, #1a1a2e 0%, #16213e 100%);
-        border: 1px solid #2d2d44;
-        border-radius: 14px;
-        padding: 16px;
-        box-shadow: 0 4px 14px rgba(0,0,0,0.4);
+    /* 1. Kill the ghost text in the header and sidebar */
+    button[kind="header"], 
+    .stSidebar [data-testid="stSidebarNav"] button,
+    section[data-testid="stSidebar"] .stExpander summary {
+        font-size: 0px !important;
+        color: transparent !important;
     }
-    div[data-testid="stMetricValue"] { color: #00d4ff !important; font-weight: 700; }
-    section[data-testid="stSidebar"] {
-        background: linear-gradient(180deg, #0f0f23 0%, #1a1a2e 100%);
-        border-right: 1px solid #2d2d44;
-    }
-    h1, h2, h3 { color: #e0e6f0; }
-    h1 {
-        background: linear-gradient(90deg, #00d4ff, #00ff88);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        font-weight: 800;
-    }
-    .stTabs [data-baseweb="tab"] {
-        background: #1e1e2f;
-        border-radius: 10px 10px 0 0;
-        padding: 12px 20px;
-        color: #b0b8c8;
-        border: 1px solid transparent;
-    }
-    .stTabs [aria-selected="true"] {
-        background: linear-gradient(90deg, #00d4ff22, #00ff8822);
-        border: 1px solid #00d4ff44;
-        color: #00d4ff !important;
-        font-weight: 600;
-    }
-    div[data-testid="stDataFrame"] {
-        border-radius: 12px;
-        border: 1px solid #2d2d44;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-    }
-    .stProgress > div > div {
-        background: linear-gradient(90deg, #00d4ff, #00ff88);
-        border-radius: 8px;
-    }
-    /* Mobile centering for auth */
-    .auth-container {
-        max-width: 400px;
-        margin: 0 auto;
-        padding: 20px;
-        background: #1a1a2e;
-        border-radius: 16px;
-        border: 1px solid #2d2d44;
-    }
-    /* Nuclear option: Remove the buggy header button entirely */
-    button[kind="header"] {
-        display: none !important; /* Completely removes the buggy button */
-    }
-    /* Keep expander text visible */
-    .stExpander summary span {
+
+    /* 2. Restore the actual labels we need */
+    section[data-testid="stSidebar"] .stExpander summary span {
         font-size: 16px !important;
         visibility: visible !important;
         color: #e0e6f0 !important;
     }
-    /* 4. FORCE MAX RESOLUTION & SIZE FOR CAMERA */
+
+    /* 3. Force the Camera to be large and clear */
     div[data-testid="stCameraInput"] > div {
         width: 100% !important;
-        min-height: 650px !important;
+        min-height: 600px !important;
     }
     video {
         object-fit: cover !important;
         width: 100% !important;
-        min-height: 650px !important;
+        min-height: 600px !important;
         border-radius: 12px;
     }
 </style>
@@ -562,12 +516,6 @@ st.set_page_config(
     page_icon="💰"
 )
 st.markdown(THEME_CSS, unsafe_allow_html=True)
-
-# Create a visible toggle for the sidebar since the header button is buggy
-if st.checkbox("⚙️ Open Settings & Demo Tools"):
-    st.sidebar.markdown("### 🛠️ Control Panel")
-    # All your existing sidebar code goes inside this block if needed, 
-    # OR simply keep the sidebar expanded by default.
 
 init_firebase()
 
