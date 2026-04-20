@@ -99,40 +99,43 @@ THEME_CSS = """
         border-radius: 16px;
         border: 1px solid #2d2d44;
     }
-    /* 1. Remove the "double_arrow_right" text artifact entirely */
+    /* 1. COMPLETELY WIPE THE BROKEN TEXT */
     button[kind="header"] {
         color: transparent !important;
         background: transparent !important;
+        overflow: hidden !important;
+        width: 50px !important;
     }
-    /* 2. Style the new Menu Emoji precisely */
+    /* 2. POSITION THE NEW MENU ICON CLEANLY */
     button[kind="header"]:after {
         content: '☰'; 
         visibility: visible;
         display: block;
         position: absolute;
-        color: #00d4ff !important; /* Matches your ASUS TUF theme */
-        font-size: 28px;
-        top: 12px;
-        left: 15px;
+        color: #00d4ff !important; 
+        font-size: 30px;
+        top: 8px;
+        left: 12px;
         font-weight: bold;
     }
-    /* 3. Force Camera Window Expansion & Clarity */
+    /* 3. EXPAND CAMERA & FORCE HIGH RESOLUTION */
     div[data-testid="stCameraInput"] {
         width: 100% !important;
-        max-width: 100% !important;
         padding: 0 !important;
     }
+    /* This forces the camera container to be much larger on mobile */
     div[data-testid="stCameraInput"] > div {
         width: 100% !important;
-        min-height: 600px !important; /* Significantly taller for long receipts */
+        min-height: 70vh !important; /* Uses 70% of the phone screen height */
     }
-    /* Ensure the video feed fills the window without blurring */
+    /* Force the video feed to fill the space without blurring */
     video {
         object-fit: cover !important;
         width: 100% !important;
-        height: 100% !important;
-        min-height: 600px !important;
-        border-radius: 12px;
+        height: 70vh !important;
+        min-height: 500px !important;
+        border-radius: 15px;
+        border: 2px solid #2d2d44;
     }
 </style>
 """
@@ -914,7 +917,7 @@ with tab_history:
 # ─── SCAN TAB ──────────────────────────────────────────────────────────────────
 with tab_scan:
     st.header("📷 Receipt Scanner (OCR)")
-    st.info("📸 Point your camera at a receipt. AI extracts amount & vendor automatically.")
+    st.info("📸 Point your camera at a receipt OR upload a photo. AI extracts amount & vendor automatically.")
     
     # Single column layout – maximum horizontal space for camera
     image = st.camera_input(
@@ -922,14 +925,33 @@ with tab_scan:
         label_visibility="collapsed"
     )
     
+    # File uploader as alternative (wrapped in expander)
+    with st.expander("📁 Upload from Gallery/Camera App", expanded=False):
+        uploaded_file = st.file_uploader(
+            "Choose receipt image",
+            type=['jpg', 'jpeg', 'png'],
+            label_visibility="collapsed"
+        )
+        if uploaded_file is not None:
+            # Convert uploaded file to PIL Image
+            image = Image.open(uploaded_file)
+            st.image(image, caption="Uploaded Receipt", use_column_width=True)
+    
+    # Process image (either from camera or uploader)
     if image:
-        img = Image.open(image)
+        # Ensure we have a PIL Image object
+        if not isinstance(image, Image.Image):
+            img = Image.open(image)
+        else:
+            img = image
+        
         # Perform OCR
         ocr_result = perform_ocr(img)
         st.session_state.ocr_result = ocr_result
         
-        # Show captured image preview (full width)
-        st.image(img, use_column_width=True, caption="Captured Receipt")
+        # Show captured/preview image if from camera (upload already shown above)
+        if 'uploaded_file' not in st.session_state or st.session_state.get('uploaded_file') is None:
+            st.image(img, use_column_width=True, caption="Captured Receipt")
     
     st.markdown("---")
     st.subheader("📋 Extraction Result")
@@ -949,7 +971,7 @@ with tab_scan:
         with st.expander("📄 View Full OCR Text"):
             st.code(res.get('text', ''), language=None)
     else:
-        st.info("👆 Take a photo to see extracted data")
+        st.info("👆 Take a photo or upload a file to see extracted data")
     
     # Save section
     if 'ocr_result' in st.session_state:
