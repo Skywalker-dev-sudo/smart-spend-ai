@@ -99,43 +99,38 @@ THEME_CSS = """
         border-radius: 16px;
         border: 1px solid #2d2d44;
     }
-    /* 1. COMPLETELY WIPE THE BROKEN TEXT */
-    button[kind="header"] {
+    /* 1. COMPLETELY HIDE ALL GHOST TEXT (double_arrow_right, etc) */
+    button[kind="header"], .stExpander summary {
+        font-size: 0px !important;
         color: transparent !important;
-        background: transparent !important;
-        overflow: hidden !important;
-        width: 50px !important;
     }
-    /* 2. POSITION THE NEW MENU ICON CLEANLY */
+    /* 2. RE-INSTATE THE MENU ICON ONLY */
     button[kind="header"]:after {
         content: '☰'; 
-        visibility: visible;
+        font-size: 26px !important;
+        visibility: visible !important;
         display: block;
         position: absolute;
         color: #00d4ff !important; 
-        font-size: 30px;
-        top: 8px;
-        left: 12px;
-        font-weight: bold;
+        top: 10px;
+        left: 15px;
     }
-    /* 3. EXPAND CAMERA & FORCE HIGH RESOLUTION */
-    div[data-testid="stCameraInput"] {
-        width: 100% !important;
-        padding: 0 !important;
+    /* 3. RE-INSTATE EXPANDER TEXT (Gallery Upload) */
+    .stExpander summary span {
+        font-size: 16px !important;
+        visibility: visible !important;
+        color: #e0e6f0 !important;
     }
-    /* This forces the camera container to be much larger on mobile */
+    /* 4. FORCE MAX RESOLUTION & SIZE FOR CAMERA */
     div[data-testid="stCameraInput"] > div {
         width: 100% !important;
-        min-height: 70vh !important; /* Uses 70% of the phone screen height */
+        min-height: 650px !important;
     }
-    /* Force the video feed to fill the space without blurring */
     video {
         object-fit: cover !important;
         width: 100% !important;
-        height: 70vh !important;
-        min-height: 500px !important;
-        border-radius: 15px;
-        border: 2px solid #2d2d44;
+        min-height: 650px !important;
+        border-radius: 12px;
     }
 </style>
 """
