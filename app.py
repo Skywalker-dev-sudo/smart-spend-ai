@@ -99,6 +99,22 @@ THEME_CSS = """
         border-radius: 16px;
         border: 1px solid #2d2d44;
     }
+    /* Fix for broken sidebar icon text */
+    button[kind="header"] { visibility: hidden !important; }
+    /* Optional: Ensure the button area is still clickable if needed */
+    button[kind="header"]:after {
+        content: '☰';
+        visibility: visible;
+        display: block;
+        position: absolute;
+        color: white;
+        font-size: 24px;
+        top: 10px;
+        left: 10px;
+    }
+    /* Expanded Camera Area for Receipt Scanning */
+    div[data-testid="stCameraInput"] { width: 100% !important; min-height: 550px !important; }
+    video { object-fit: cover !important; border-radius: 12px; }
 </style>
 """
 
@@ -879,56 +895,80 @@ with tab_history:
 # ─── SCAN TAB ──────────────────────────────────────────────────────────────────
 with tab_scan:
     st.header("📷 Receipt Scanner (OCR)")
-    st.info("Take a photo of your receipt. The AI will extract amount & vendor.")
-
-    col_scan1, col_scan2 = st.columns([2, 1])
-    with col_scan1:
-        image = st.camera_input("Capture receipt")
-        if image:
-            img = Image.open(image)
-            # Perform OCR
-            ocr_result = perform_ocr(img)
-            st.session_state.ocr_result = ocr_result
-
-    with col_scan2:
-        st.markdown("### 📋 Extraction Result")
-        if 'ocr_result' in st.session_state:
-            res = st.session_state.ocr_result
-            st.write(f"**Vendor:** {res.get('vendor','Unknown')}")
-            st.write(f"**Amount:** {fmt(res.get('amount')) if res.get('amount') else 'Not detected'}")
-            with st.expander("📄 Full OCR Text"):
-                st.text(res.get('text', ''))
-        else:
-            st.info("Take a photo to see extracted data")
-
-    # Save scanned receipt
+    st.info("📸 Point your camera at a receipt. AI extracts amount & vendor automatically.")
+    
+    # Single column layout – maximum horizontal space for camera
+    image = st.camera_input(
+        "📸 Capture Receipt",
+        label_visibility="collapsed"
+    )
+    
+    if image:
+        img = Image.open(image)
+        # Perform OCR
+        ocr_result = perform_ocr(img)
+        st.session_state.ocr_result = ocr_result
+        
+        # Show captured image preview (full width)
+        st.image(img, use_column_width=True, caption="Captured Receipt")
+    
+    st.markdown("---")
+    st.subheader("📋 Extraction Result")
+    
+    if 'ocr_result' in st.session_state:
+        res = st.session_state.ocr_result
+        
+        # Display results in two metrics side-by-side
+        res_col1, res_col2 = st.columns(2)
+        with res_col1:
+            st.metric("Vendor", res.get('vendor', 'Unknown'))
+        with res_col2:
+            amount_val = res.get('amount')
+            st.metric("Amount", fmt(amount_val) if amount_val else "Not detected")
+        
+        # Full text expander
+        with st.expander("📄 View Full OCR Text"):
+            st.code(res.get('text', ''), language=None)
+    else:
+        st.info("👆 Take a photo to see extracted data")
+    
+    # Save section
     if 'ocr_result' in st.session_state:
         st.markdown("---")
         st.subheader("✅ Confirm & Save Transaction")
+        
         ocr = st.session_state.ocr_result
         amount_val = ocr.get('amount') or 0.0
         vendor_name = ocr.get('vendor') or 'Unknown'
         category_guess = ocr.get('category') or 'Other'
-
-        cc1, cc2, cc3 = st.columns(3)
-        with cc1:
+        
+        # Centered confirmation form
+        save_col1, save_col2, save_col3 = st.columns([1, 2, 1])
+        with save_col2:
             save_date = st.date_input("Date", datetime.now(), key="scan_date")
             save_amount = st.number_input("Amount (₹)", value=float(amount_val), format="%.2f", key="scan_amount")
-        with cc2:
             save_desc = st.text_input("Description", value=f"Receipt - {vendor_name}", key="scan_desc")
-            ttype = st.selectbox("Type", ["Expense", "Income"], key="scan_type")
-        with cc3:
-            cat_opts = INCOME_CATS if ttype == "Income" else EXPENSE_CATS
-            save_category = st.selectbox("Category", cat_opts, index=cat_opts.index(category_guess) if category_guess in cat_opts else 0, key="scan_cat")
-
-        if st.button("💾 Save to Cloud", use_container_width=True):
-            if save_amount > 0 and save_desc:
-                save_txn(save_date, save_amount, save_category, ttype, save_desc, uid)
-                st.success("✅ Transaction saved!")
-                # Clear OCR cache
-                if 'ocr_result' in st.session_state:
-                    del st.session_state['ocr_result']
-                st.cache_data.clear()
-                st.rerun()
-            else:
-                st.error("Amount & description required")
+            
+            col_t1, col_t2 = st.columns(2)
+            with col_t1:
+                ttype = st.selectbox("Type", ["Expense", "Income"], key="scan_type")
+            with col_t2:
+                cat_opts = INCOME_CATS if ttype == "Income" else EXPENSE_CATS
+                save_category = st.selectbox(
+                    "Category", 
+                    cat_opts, 
+                    index=cat_opts.index(category_guess) if category_guess in cat_opts else 0,
+                    key="scan_cat"
+                )
+            
+            if st.button("💾 Save to Cloud", use_container_width=True):
+                if save_amount > 0 and save_desc:
+                    save_txn(save_date, save_amount, save_category, ttype, save_desc, uid)
+                    st.success("✅ Transaction saved!")
+                    # Clear OCR cache
+                    if 'ocr_result' in st.session_state:
+                        del st.session_state['ocr_result']
+                    st.cache_data.clear()
+                    st.rerun()
+                else:
+                    st.error("Amount & description required")
