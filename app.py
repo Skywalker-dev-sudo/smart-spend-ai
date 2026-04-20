@@ -84,7 +84,7 @@ EXPENSE_CATS = ["Food", "Transport", "Shopping", "Bills", "Rent", "Other"]
 # Vendor keyword to category mapping for auto-categorization after OCR
 VENDOR_MAP = {
     "zomato": "Food", "swiggy": "Food", "domino": "Food", "mcdonalds": "Food",
-    "big basket": "Food", "blinkit": "Food", "zepto": "Food",
+    "big basket": "Food", "blinkit": "Food", "zepto": "Food", "d mart": "Food", "avenue supermarts": "Food",
     "uber": "Transport", "ola": "Transport", "rapido": "Transport",
     "amazon": "Shopping", "flipkart": "Shopping", "myntra": "Shopping",
     "netflix": "Entertainment", "prime": "Entertainment", "hotstar": "Entertainment",
@@ -183,11 +183,12 @@ def perform_ocr(image: Image) -> dict:
         img = image.convert('L')
         text = pytesseract.image_to_string(img, config='--psm 6')
         result['text'] = text.strip()
-        # Find largest decimal number (amount)
-        numbers = re.findall(r'(\d+\.\d{2,})', text)
+        # Find amounts: regex for numbers with 2+ digits before decimal and 2 after
+        numbers = re.findall(r'(\d{2,}\.\d{2})', text)
         if numbers:
-            amounts = [float(n) for n in numbers]
-            result['amount'] = max(amounts)
+            # Clean commas and convert to float
+            amounts = [float(n.replace(',', '')) for n in numbers]
+            result['amount'] = max(amounts)  # Grand total is largest
         # Find vendor keyword
         text_lower = text.lower()
         for keyword, cat in VENDOR_MAP.items():
