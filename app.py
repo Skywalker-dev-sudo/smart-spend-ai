@@ -174,21 +174,24 @@ def init_firebase():
 def perform_ocr(image: Image) -> dict:
     """
     Extract text from receipt image using Tesseract OCR.
+    Uses 'bottom-up' logic: the last large number (>=100) is typically the grand total.
     Returns:
         dict: { 'text': str, 'amount': float|None, 'vendor': str|None }
     """
     result = {'text': '', 'amount': None, 'vendor': None}
     try:
-        # Preprocess: grayscale + upscale
+        # Preprocess: grayscale
         img = image.convert('L')
         text = pytesseract.image_to_string(img, config='--psm 6')
         result['text'] = text.strip()
-        # Find amounts: regex for numbers with 2+ digits before decimal and 2 after
-        numbers = re.findall(r'(\d{2,}\.\d{2})', text)
+        
+        # Find amounts: strict regex for values >= 100.00 (3+ digits before decimal)
+        numbers = re.findall(r'(\d{3,}\.\d{2})', text)
         if numbers:
             # Clean commas and convert to float
             amounts = [float(n.replace(',', '')) for n in numbers]
-            result['amount'] = max(amounts)  # Grand total is largest
+            result['amount'] = amounts[-1]  # Last large number = Grand Total (bottom of receipt)
+        
         # Find vendor keyword
         text_lower = text.lower()
         for keyword, cat in VENDOR_MAP.items():
