@@ -855,67 +855,37 @@ with tab_history:
                 else:
                     st.error("Enter a document ID")
 
-# ─── SCAN TAB ──────────────────────────────────────────────────────────────────
+# ─── SCAN TAB (UPLOAD ONLY) ────────────────────────────────────────────────────
 with tab_scan:
     st.header("📷 Receipt Scanner (OCR)")
-    st.info("📸 Point your camera at a receipt OR upload a photo. AI extracts amount & vendor automatically.")
-    
-    # Single column layout – maximum horizontal space for camera
-    image = st.camera_input(
-        "📸 Capture Receipt",
-        label_visibility="collapsed"
+    st.info("💡 Tip: Use your phone's camera app to take a high-quality photo, then upload it here for the best AI accuracy.")
+
+    # File uploader replacing the live camera
+    uploaded_file = st.file_uploader(
+        "📁 Upload Receipt Image", 
+        type=['jpg', 'jpeg', 'png'],
+        help="Max size: 20MB. Native camera photos work best!"
     )
-    
-    # File uploader as alternative (wrapped in expander)
-    with st.expander("📁 Upload from Gallery/Camera App", expanded=False):
-        uploaded_file = st.file_uploader(
-            "Choose receipt image",
-            type=['jpg', 'jpeg', 'png'],
-            label_visibility="collapsed"
-        )
-        if uploaded_file is not None:
-            # Convert uploaded file to PIL Image
-            image = Image.open(uploaded_file)
-            st.image(image, caption="Uploaded Receipt", use_column_width=True)
-    
-    # Process image (either from camera or uploader)
-    if image:
-        # Ensure we have a PIL Image object
-        if not isinstance(image, Image.Image):
-            img = Image.open(image)
-        else:
-            img = image
+
+    if uploaded_file:
+        # Process the uploaded image
+        img = Image.open(uploaded_file)
+        st.image(img, caption="Uploaded Receipt", use_container_width=True)
         
-        # Perform OCR
-        ocr_result = perform_ocr(img)
-        st.session_state.ocr_result = ocr_result
-        
-        # Show captured/preview image if from camera (upload already shown above)
-        if 'uploaded_file' not in st.session_state or st.session_state.get('uploaded_file') is None:
-            st.image(img, use_column_width=True, caption="Captured Receipt")
-    
-    st.markdown("---")
-    st.subheader("📋 Extraction Result")
-    
-    if 'ocr_result' in st.session_state:
-        res = st.session_state.ocr_result
-        
-        # Display results in two metrics side-by-side
-        res_col1, res_col2 = st.columns(2)
-        with res_col1:
-            st.metric("Vendor", res.get('vendor', 'Unknown'))
-        with res_col2:
-            amount_val = res.get('amount')
-            st.metric("Amount", fmt(amount_val) if amount_val else "Not detected")
-        
-        # Full text expander
-        with st.expander("📄 View Full OCR Text"):
-            st.code(res.get('text', ''), language=None)
-    else:
-        st.info("👆 Take a photo or upload a file to see extracted data")
-    
-    # Save section
-    if 'ocr_result' in st.session_state:
+        # Trigger OCR
+        with st.spinner("🤖 AI is reading receipt..."):
+            ocr_result = perform_ocr(img)
+            st.session_state.ocr_result = ocr_result
+
+        st.markdown("### 📋 Extraction Result")
+        if 'ocr_result' in st.session_state:
+            res = st.session_state.ocr_result
+            st.write(f"**Vendor:** {res.get('vendor','Unknown')}")
+            st.write(f"**Amount:** {fmt(res.get('amount')) if res.get('amount') else 'Not detected'}")
+            with st.expander("📄 View Full Extracted Text"):
+                st.text(res.get('text', ''))
+
+        # Save section
         st.markdown("---")
         st.subheader("✅ Confirm & Save Transaction")
         
