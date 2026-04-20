@@ -99,23 +99,11 @@ THEME_CSS = """
         border-radius: 16px;
         border: 1px solid #2d2d44;
     }
-    /* 1. COMPLETELY HIDE ALL GHOST TEXT (double_arrow_right, etc) */
-    button[kind="header"], .stExpander summary {
-        font-size: 0px !important;
-        color: transparent !important;
+    /* Nuclear option: Remove the buggy header button entirely */
+    button[kind="header"] {
+        display: none !important; /* Completely removes the buggy button */
     }
-    /* 2. RE-INSTATE THE MENU ICON ONLY */
-    button[kind="header"]:after {
-        content: '☰'; 
-        font-size: 26px !important;
-        visibility: visible !important;
-        display: block;
-        position: absolute;
-        color: #00d4ff !important; 
-        top: 10px;
-        left: 15px;
-    }
-    /* 3. RE-INSTATE EXPANDER TEXT (Gallery Upload) */
+    /* Keep expander text visible */
     .stExpander summary span {
         font-size: 16px !important;
         visibility: visible !important;
@@ -139,7 +127,7 @@ THEME_CSS = """
 INCOME_CATS = ["Salary", "Freelance", "Bonus", "Investment", "Other"]
 EXPENSE_CATS = ["Food", "Transport", "Shopping", "Bills", "Rent", "Other"]
 
-# Vendor keyword → category mapping for auto-categorization after OCR
+# Vendor keyword to category mapping for auto-categorization after OCR
 VENDOR_MAP = {
     "zomato": "Food", "swiggy": "Food", "domino": "Food", "mcdonalds": "Food",
     "big basket": "Food", "blinkit": "Food", "zepto": "Food",
@@ -212,7 +200,7 @@ def init_firebase():
     cred_path = os.path.join(os.path.dirname(__file__), 'serviceAccountKey.json')
     if not os.path.exists(cred_path):
         st.error("🔴 CRITICAL: `serviceAccountKey.json` not found. "
-                 "Download from Firebase Console → Project Settings → Service Accounts.")
+                 "Download from: Firebase Console > Project Settings > Service Accounts")
         st.stop()
     try:
         cred = credentials.Certificate(cred_path)
@@ -570,10 +558,16 @@ def mock_bank_sync(uid):
 st.set_page_config(
     page_title="AI Budget Tracker",
     layout="wide",
-    initial_sidebar_state="collapsed",
+    initial_sidebar_state="expanded",  # Force it open for the Viva
     page_icon="💰"
 )
 st.markdown(THEME_CSS, unsafe_allow_html=True)
+
+# Create a visible toggle for the sidebar since the header button is buggy
+if st.checkbox("⚙️ Open Settings & Demo Tools"):
+    st.sidebar.markdown("### 🛠️ Control Panel")
+    # All your existing sidebar code goes inside this block if needed, 
+    # OR simply keep the sidebar expanded by default.
 
 init_firebase()
 
