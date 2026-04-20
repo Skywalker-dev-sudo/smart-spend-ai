@@ -1,0 +1,7 @@
+streamlit
+pandas
+scikit-learn
+matplotlib
+plotly
+firebase-admin
+google-cloud-firestore
