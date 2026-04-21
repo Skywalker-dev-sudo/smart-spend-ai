@@ -39,6 +39,7 @@ except ImportError:
     FIREBASE_SDK = False
 
 CURRENCY = "₹"
+import random as py_random
 
 # ─── TESSERACT CONFIG ──────────────────────────────────────────────────────────
 # Set path for Windows; on Linux/Cloud use 'tesseract' in PATH
@@ -481,14 +482,13 @@ def gen_advisory(df, budget, goal_n="", goal_a=0, inc_f=0, exp_f=0):
 
 # ─── DEMO DATA ──────────────────────────────────────────────────────────────────
 def seed_90_days(uid):
-    random = np.random.RandomState(42)
     count = 0
     db = get_db()
     for month in [2, 3, 4]:
         year = 2026
         month_str = f"{year}-{month:02d}"
         # Income
-        salary = random.randint(48000, 52000)
+        salary = py_random.randint(48000, 52000)
         doc = db.collection('users').document(uid).collection('transactions').document()
         doc.set({
             'date': f"{month_str}-01", 'amount': float(salary), 'category': 'Salary',
@@ -497,9 +497,9 @@ def seed_90_days(uid):
         count += 1
         # Expenses
         for day in range(2, 28):
-            if random.random() < 0.7:
-                template = random.choice(SEED_TEMPLATES)
-                amount = random.randint(template[2], template[3])
+            if py_random.random() < 0.7:
+                template = py_random.choice(SEED_TEMPLATES)
+                amount = py_random.randint(template[2], template[3])
                 doc = db.collection('users').document(uid).collection('transactions').document()
                 doc.set({
                     'date': f"{month_str}-{day:02d}", 'amount': float(amount),
@@ -508,9 +508,9 @@ def seed_90_days(uid):
                 })
                 count += 1
         # Extra income
-        if random.random() < 0.5:
-            freelance = random.choice(INCOME_TEMPLATES)
-            amount = random.randint(freelance[2], freelance[3])
+        if py_random.random() < 0.5:
+            freelance = py_random.choice(INCOME_TEMPLATES)
+            amount = py_random.randint(freelance[2], freelance[3])
             doc = db.collection('users').document(uid).collection('transactions').document()
             doc.set({
                 'date': f"{month_str}-15", 'amount': float(amount), 'category': freelance[1],
