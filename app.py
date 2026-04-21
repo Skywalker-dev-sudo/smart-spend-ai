@@ -735,15 +735,20 @@ with st.sidebar:
 
 # ─── ADMIN PAGE LOGIC (SEPARATE FROM SIDEBAR) ────────────────────────────────
 if page == "Admin Suite":
-    # Security Check: Only admins can access
-    db = get_db()
-    if db:
-        meta_doc = db.collection('users').document(st.session_state.uid).collection('_meta').document('auth').get()
-        if meta_doc.exists:
-            role = meta_doc.to_dict().get('role', 'user')
-            if role != 'admin':
-                st.error("🚫 Access Denied: Admin privileges required.")
-                st.stop()
+    # Development Admin Override (for testing - replace with your email)
+    dev_email = "abc@gmail.com"  # Ensure there are no extra spaces here
+    if st.session_state.user and st.session_state.user.get('email') == dev_email:
+        pass  # Allow access for development
+    else:
+        # Security Check: Only admins can access
+        db = get_db()
+        if db:
+            meta_doc = db.collection('users').document(st.session_state.uid).collection('_meta').document('auth').get()
+            if meta_doc.exists:
+                role = meta_doc.to_dict().get('role', 'user')
+                if role != 'admin':
+                    st.error("🚫 Access Denied: Admin privileges required.")
+                    st.stop()
     
     st.title("👑 Global Administrator Suite")
     db = get_db()
