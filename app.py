@@ -803,10 +803,14 @@ if page == "Admin Suite":
             st.success(f"✅ {target_email} has been promoted!")
             st.balloons()
     st.stop() # Prevents dashboard from loading on the Admin page
-    # ─── TABS (MOBILE STACK) ────────────────────────────────────────────────────────
-    tab_overview, tab_ai, tab_history, tab_scan = st.tabs([
-        "📊 Overview", "🧠 AI Analysis", "📝 History", "📷 Scan"
-    ])
+
+if page == "My Dashboard":
+    df = fetch_txns(uid)
+
+# ─── TABS (MOBILE STACK) ────────────────────────────────────────────────────────
+tab_overview, tab_ai, tab_history, tab_scan = st.tabs([
+    "📊 Overview", "🧠 AI Analysis", "📝 History", "📷 Scan"
+])
 
     # ─── OVERVIEW TAB ──────────────────────────────────────────────────────────────
     with tab_overview:
