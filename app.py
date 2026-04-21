@@ -736,44 +736,33 @@ with st.sidebar:
 # ─── ADMIN PAGE LOGIC (SEPARATE FROM SIDEBAR) ────────────────────────────────
 if page == "Admin Suite":
     st.title("👑 Global Administrator Suite")
-    
-    # 1. Force Database Initialization
     db = get_db()
     
-    if db is None:
-        st.error("☁️ Firebase not connected. Check your credentials/secrets.")
-    else:
-        with st.spinner("🔄 Fetching live platform data..."):
-            # 2. Directly fetch the Root Users Collection
-            user_docs = db.collection('users').get()
-            total_users = len(user_docs)
+    if db:
+        # 1. Fetch based on the sub-collection presence
+        # We query the root collection 'users' but must handle the 'virtual' documents
+        user_refs = db.collection('users').list_documents() # list_documents finds placeholders
+        all_refs = list(user_refs)
+        
+        a1, a2, a3 = st.columns(3)
+        a1.metric("👥 Total Users", len(all_refs)) # This will now show the real count
+        a2.metric("🟢 Database", "Firestore Live")
+        a3.metric("💻 Hardware", "ASUS TUF Node")
+
+        user_details = []
+        for ref in all_refs[:10]: # Limit for performance
+            # Fetch the actual email from the _meta sub-collection
+            meta_doc = ref.collection('_meta').document('auth').get()
+            email = meta_doc.to_dict().get('email', 'System User') if meta_doc.exists else "Placeholder ID"
             
-            # Metrics Row
-            a1, a2, a3 = st.columns(3)
-            a1.metric("👥 Total Users", total_users) # This will now show the real count
-            a2.metric("🟢 DB Status", "Firestore Live")
-            a3.metric("💻 Hardware", "ASUS TUF Node")
-            
-            st.markdown("---")
-            st.subheader("📋 Registered Users Details")
-            
-            user_list = []
-            for doc in user_docs:
-                uid = doc.id
-                # Fetch Name from the sub-collection we created during registration
-                meta_ref = db.collection('users').document(uid).collection('_meta').document('auth').get()
-                user_email = meta_ref.to_dict().get('email', 'Unknown') if meta_ref.exists else "Guest User"
-                
-                user_list.append({
-                    "Firebase UID": uid,
-                    "User Email": user_email,
-                    "Plan": "Premium" if uid == st.session_state.uid and st.session_state.is_pro else "Free"
-                })
-            
-            if user_list:
-                st.table(pd.DataFrame(user_list)) # Renders the real list for the examiner
-            else:
-                st.warning("No users found in the 'users' collection.")
+            user_details.append({
+                "User ID": ref.id,
+                "Email/Name": email,
+                "Plan": "Premium" if ref.id == st.session_state.uid and st.session_state.is_pro else "Free"
+            })
+
+        if user_details:
+            st.table(pd.DataFrame(user_details))
     st.stop() # Prevents dashboard from loading on the Admin page
 
 # ─── USER DASHBOARD (ONLY SHOWS IF page == "My Dashboard") ───────────────────
