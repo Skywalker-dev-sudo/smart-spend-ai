@@ -102,6 +102,15 @@ THEME_CSS = """
 
     /* 6. Artifact Removal (Ghost Text Fix) */
     button[kind="header"] { display: none !important; }
+
+    /* 7. Modern Prediction Slider Styling */
+    div[data-testid="stSlider"] > div > div > div > div {
+        background: linear-gradient(90deg, #00d4ff, #00ff88) !important;
+    }
+    div[data-testid="stSlider"] [data-baseweb="typography"] {
+        color: #00d4ff !important;
+        font-weight: bold !important;
+    }
 </style>
 """
 
@@ -200,28 +209,31 @@ def init_firebase():
 
 # ─── OCR ENGINE ─────────────────────────────────────────────────────────────────
 def perform_ocr(image: Image) -> dict:
-    """
-    Extract text from receipt image using Tesseract OCR.
-    Uses 'bottom-up' logic: the last large number (>=100) is typically the grand total.
-    Returns:
-        dict: { 'text': str, 'amount': float|None, 'vendor': str|None }
-    """
     result = {'text': '', 'amount': None, 'vendor': None}
     try:
-        # Preprocess: grayscale
+        # 1. Preprocess: grayscale and sharpen
         img = image.convert('L')
         text = pytesseract.image_to_string(img, config='--psm 6')
         result['text'] = text.strip()
+        text_clean = text.replace(',', '') # Handle Indian comma formatting (e.g., 2,856)
         
-        # Find amounts: strict regex for values >= 100.00 (3+ digits before decimal)
-        numbers = re.findall(r'(\d{3,}\.\d{2})', text)
+        # 2. Find amounts: targeting standard decimal prices
+        numbers = re.findall(r'(\d+\.\d{2})', text_clean)
         if numbers:
-            # Clean commas and convert to float
-            amounts = [float(n.replace(',', '')) for n in numbers]
-            result['amount'] = amounts[-1]  # Last large number = Grand Total (bottom of receipt)
+            amounts = [float(n) for n in numbers]
+            
+            # STRATEGY: Try 'Bottom-Up' first, fallback to 'Maximum'
+            if len(amounts) > 1:
+                # Often the last large number is the total, but misreads can happen
+                last_val = amounts[-1]
+                max_val = max(amounts)
+                # If they are close, the last one is usually the 'Total Paid'
+                result['amount'] = last_val if last_val > (max_val * 0.8) else max_val
+            else:
+                result['amount'] = amounts[0]
         
-        # Find vendor keyword
-        text_lower = text.lower()
+        # 3. Vendor mapping
+        text_lower = text_clean.lower()
         for keyword, cat in VENDOR_MAP.items():
             if keyword in text_lower:
                 result['vendor'] = keyword.title()
@@ -229,6 +241,7 @@ def perform_ocr(image: Image) -> dict:
                 break
         if not result.get('vendor'):
             result['vendor'] = 'Unknown'
+            
     except Exception as e:
         st.error(f"OCR error: {e}")
     return result
@@ -413,7 +426,7 @@ def detect_anomalies(df):
     except:
         return pd.DataFrame()
 
-def forecast_next_30(df):
+def forecast_next_30(df, forecast_days=30):
     if df.empty or len(df) < 2:
         return 0.0, 0.0
     df = df.copy()
@@ -426,7 +439,9 @@ def forecast_next_30(df):
             if len(monthly) >= 2:
                 monthly['idx'] = np.arange(len(monthly))
                 reg = LinearRegression().fit(monthly[['idx']], monthly['amount'])
-                forecast_val = max(0, reg.predict([[len(monthly)]])[0])
+                monthly_forecast = max(0, reg.predict([[len(monthly)]])[0])
+                daily_avg = monthly_forecast / 30
+                forecast_val = daily_avg * forecast_days
                 if ttype == 'Income':
                     inc_f = forecast_val
                 else:
@@ -745,11 +760,12 @@ with tab_overview:
 # ─── AI ANALYSIS TAB ────────────────────────────────────────────────────────────
 with tab_ai:
     st.header("🧠 AI Analysis & Forecasting")
+    forecast_days = st.slider("Forecast Horizon (Days)", min_value=7, max_value=90, value=30, step=7)
     if df.empty or len(df) < 3:
         st.info("📊 Add 3+ transactions to unlock AI forecasting")
     else:
         acc = train_cat_model(df)
-        inc_f, exp_f = forecast_next_30(df)
+        inc_f, exp_f = forecast_next_30(df, forecast_days)
         exp_df = df[df['type']=='Expense']
         top_cat = exp_df.groupby('category')['amount'].sum().idxmax() if not exp_df.empty else "N/A"
 
