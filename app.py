@@ -22,7 +22,10 @@ import secrets
 import io
 from datetime import datetime, timedelta
 from PIL import Image
-from fpdf import FPDF
+try:
+    from fpdf import FPDF
+except ImportError:
+    FPDF = None
 import pytesseract
 from sklearn.ensemble import IsolationForest
 from sklearn.linear_model import LinearRegression
@@ -695,24 +698,30 @@ with st.sidebar:
     # 👑 Admin Panel (Restricted)
     dev_email = "abc@gmail.com"
     if user_email == dev_email:
+        db = get_db()
         with st.expander("👑 Admin Panel", expanded=True):
             st.subheader("🌐 Global System Analytics")
             a1, a2 = st.columns(2)
-            a1.metric("👥 Total Users", "127")
+            if db:
+                total_users = len(list(db.collection('users').get()))
+            else:
+                total_users = 0
+            a1.metric("👥 Total Users", total_users)
             a2.metric("🟢 DB Sync", "Connected")
             
-            st.markdown("**Recent 5 Transactions (Platform):**")
+            st.markdown("**Recent 10 Transactions (Platform):**")
             all_txns = []
-            docs = db.collection('users').limit(20).get()
-            for doc in docs:
-                txns = doc.reference.collection('transactions').limit(5).get()
-                for t in txns:
-                    d = t.to_dict()
-                    d['id'] = t.id
-                    d['user'] = doc.id
-                    all_txns.append(d)
+            if db:
+                docs = db.collection('users').limit(10).get()
+                for doc in docs:
+                    txns = doc.reference.collection('transactions').limit(5).get()
+                    for t in txns:
+                        d = t.to_dict()
+                        d['id'] = t.id
+                        d['user'] = doc.id
+                        all_txns.append(d)
             if all_txns:
-                admin_df = pd.DataFrame(all_txns[:5])[['user', 'date', 'description', 'amount', 'type']]
+                admin_df = pd.DataFrame(all_txns[:10])[['user', 'date', 'description', 'amount', 'type']]
                 st.dataframe(admin_df, use_container_width=True, hide_index=True)
             else:
                 st.info("No platform transactions yet.")
@@ -949,7 +958,7 @@ with tab_history:
         st.dataframe(df_disp[display_cols], use_container_width=True, height=400)
 
         # Export PDF Report
-        if not df_disp.empty:
+        if FPDF and not df_disp.empty:
             def create_pdf(df):
                 pdf = FPDF()
                 pdf.add_page()
