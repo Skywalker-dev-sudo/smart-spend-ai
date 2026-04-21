@@ -800,10 +800,12 @@ with tab_ai:
                             st.session_state.goal_name, st.session_state.goal_amount,
                             inc_f, exp_f)
         for tip in tips:
-            if "⚠️" in tip or "🚨" in tip:
+            if "✅" in tip:
+                st.success(tip)
+            elif "🚨" in tip or "Budget exceeded" in tip:
                 st.error(tip)
             else:
-                st.success(tip) if "✅" in tip else st.info(tip)
+                st.info(tip)
 
 # ─── HISTORY TAB ───────────────────────────────────────────────────────────────
 with tab_history:
