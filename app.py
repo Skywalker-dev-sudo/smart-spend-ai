@@ -1014,40 +1014,30 @@ with tab_history:
         st.dataframe(df_disp[display_cols], use_container_width=True, height=400)
 
         # Export PDF Report
-        if FPDF and not df_disp.empty:
-            def create_pdf(df):
-                pdf = FPDF()
-                pdf.add_page()
-                pdf.set_font("Arial", 'B', 16)
-                pdf.cell(190, 10, "SmartSpend AI - Financial Report", ln=True, align='C')
-                pdf.set_font("Arial", size=10)
-                pdf.cell(190, 10, f"Generated on: {datetime.now().strftime('%Y-%m-%d')}", ln=True, align='C')
-                pdf.ln(10)
-                pdf.set_fill_color(0, 212, 255)
-                pdf.cell(30, 10, "Date", 1, 0, 'C', True)
-                pdf.cell(80, 10, "Description", 1, 0, 'C', True)
-                pdf.cell(40, 10, "Category", 1, 0, 'C', True)
-                pdf.cell(40, 10, "Amount", 1, 1, 'C', True)
-                for _, row in df.head(20).iterrows():
-                    # 1. Clean the amount string to use 'Rs.' instead of '₹'
-                    clean_amount = str(row['amount']).replace('₹', 'Rs. ') 
-                    # 2. Clean the description to remove any non-Latin characters
-                    clean_desc = str(row['description']).encode('latin-1', 'ignore').decode('latin-1')
-                    # 3. Update the cell calls
-                    pdf.cell(30, 10, str(row['date']), 1)
-                    pdf.cell(80, 10, clean_desc[:30], 1)
-                    pdf.cell(40, 10, str(row['category']), 1)
-                    pdf.cell(40, 10, clean_amount, 1, 1)
-                return pdf.output()
-            
-            pdf_data = create_pdf(df_disp)
-            st.download_button(
-                label="📥 Download PDF Report",
-                data=pdf_data,
-                file_name="SmartSpend_Report.pdf",
-                mime="application/pdf",
-                use_container_width=True
-            )
+        # Ensure df_disp is not empty before attempting PDF creation
+        if not df_disp.empty:
+            try:
+                # Generate the data
+                pdf_data = create_pdf(df_disp)
+                
+                # Only show the button if pdf_data has content
+                if pdf_data:
+                    st.download_button(
+                        label="📥 Download PDF Report",
+                        data=pdf_data,
+                        file_name="SmartSpend_Report.pdf",
+                        mime="application/pdf",
+                        use_container_width=True
+                    )
+            except Exception as e:
+                # Fallback to CSV if PDF fails to prevent a crash
+                st.download_button(
+                    label="📥 Download CSV Report (Alternative)",
+                    data=df_disp.to_csv(index=False).encode('utf-8'),
+                    file_name="SmartSpend_Data.csv",
+                    mime="text/csv",
+                    use_container_width=True
+                )
 
         st.markdown("---")
         st.subheader("🗑️ Delete Transaction")
