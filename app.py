@@ -19,8 +19,10 @@ import os
 import re
 import hashlib
 import secrets
+import io
 from datetime import datetime, timedelta
 from PIL import Image
+from fpdf import FPDF
 import pytesseract
 from sklearn.ensemble import IsolationForest
 from sklearn.linear_model import LinearRegression
@@ -691,7 +693,7 @@ with st.sidebar:
             st.rerun()
 
     # 👑 Admin Panel (Restricted)
-    dev_email = "smartspend.ai2026@gmail.com"
+    dev_email = "abc@gmail.com"
     if user_email == dev_email:
         with st.expander("👑 Admin Panel", expanded=True):
             st.subheader("🌐 Global System Analytics")
@@ -948,12 +950,32 @@ with tab_history:
 
         # Export PDF Report
         if not df_disp.empty:
-            csv = df_disp.to_csv(index=False).encode('utf-8')
+            def create_pdf(df):
+                pdf = FPDF()
+                pdf.add_page()
+                pdf.set_font("Arial", 'B', 16)
+                pdf.cell(190, 10, "SmartSpend AI - Financial Report", ln=True, align='C')
+                pdf.set_font("Arial", size=10)
+                pdf.cell(190, 10, f"Generated on: {datetime.now().strftime('%Y-%m-%d')}", ln=True, align='C')
+                pdf.ln(10)
+                pdf.set_fill_color(0, 212, 255)
+                pdf.cell(30, 10, "Date", 1, 0, 'C', True)
+                pdf.cell(80, 10, "Description", 1, 0, 'C', True)
+                pdf.cell(40, 10, "Category", 1, 0, 'C', True)
+                pdf.cell(40, 10, "Amount", 1, 1, 'C', True)
+                for _, row in df.head(20).iterrows():
+                    pdf.cell(30, 10, str(row['date']), 1)
+                    pdf.cell(80, 10, str(row['description'])[:30], 1)
+                    pdf.cell(40, 10, str(row['category']), 1)
+                    pdf.cell(40, 10, f"Rs. {row['amount']}", 1, 1)
+                return pdf.output(dest='S').encode('latin-1')
+            
+            pdf_data = create_pdf(df_disp)
             st.download_button(
-                "📥 Download PDF Report",
-                data=csv,
-                file_name="smartspend_report.csv",
-                mime="text/csv",
+                label="📥 Download PDF Report",
+                data=pdf_data,
+                file_name="SmartSpend_Report.pdf",
+                mime="application/pdf",
                 use_container_width=True
             )
 
