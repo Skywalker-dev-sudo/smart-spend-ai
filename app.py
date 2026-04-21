@@ -1038,7 +1038,7 @@ with tab_history:
                     pdf.cell(80, 10, clean_desc[:30], 1)
                     pdf.cell(40, 10, str(row['category']), 1)
                     pdf.cell(40, 10, clean_amount, 1, 1)
-                return pdf.output(dest='S').encode('latin-1')
+                return pdf.output()
             
             pdf_data = create_pdf(df_disp)
             st.download_button(
