@@ -859,7 +859,10 @@ with tab_history:
             df_disp = df_disp[df_disp['type'] == filter_type]
 
         anomalies = detect_anomalies(df_disp)
-        df_disp['AI Status'] = df_disp['id'].isin(anomalies['id']).map({True: '🚨 Anomaly', False: '✅ Verified'})
+        df_disp['AI Status'] = '✅ Verified'
+        if not anomalies.empty and 'id' in anomalies.columns:
+            anomaly_ids = anomalies['id'].tolist()
+            df_disp.loc[df_disp['id'].isin(anomaly_ids), 'AI Status'] = '🚨 Anomaly'
 
         df_disp['amount'] = df_disp['amount'].apply(fmt)
 
