@@ -812,325 +812,325 @@ tab_overview, tab_ai, tab_history, tab_scan = st.tabs([
     "📊 Overview", "🧠 AI Analysis", "📝 History", "📷 Scan"
 ])
 
-    # ─── OVERVIEW TAB ──────────────────────────────────────────────────────────────
-    with tab_overview:
-        st.header("📊 Financial Overview")
-        if df.empty:
-            st.info("📭 No transactions. Use sidebar to generate demo data or scan receipts.")
-        else:
-            inc_tot = df[df['type']=='Income']['amount'].sum()
-            exp_tot = df[df['type']=='Expense']['amount'].sum()
-            net = inc_tot - exp_tot
+# ─── OVERVIEW TAB ──────────────────────────────────────────────────────────────
+with tab_overview:
+    st.header("📊 Financial Overview")
+    if df.empty:
+        st.info("📭 No transactions. Use sidebar to generate demo data or scan receipts.")
+    else:
+        inc_tot = df[df['type']=='Income']['amount'].sum()
+        exp_tot = df[df['type']=='Expense']['amount'].sum()
+        net = inc_tot - exp_tot
 
-            m1, m2, m3 = st.columns(3)
-            m1.metric("💰 Net Balance", fmt(net))
-            m2.metric("📥 Total Income", fmt(inc_tot))
-            m3.metric("📤 Total Expense", fmt(exp_tot))
-
-            st.markdown("---")
-            st.subheader("📈 Category Breakdown")
-
-            col_p1, col_p2 = st.columns(2)
-            with col_p1:
-                exp_df = df[df['type']=='Expense']
-                if not exp_df.empty:
-                    fig_exp = px.pie(exp_df, values='amount', names='category',
-                                      title='Expense Breakdown', hole=0.4,
-                                      color_discrete_sequence=px.colors.sequential.Reds)
-                    fig_exp.update_layout(template="plotly_dark", height=400)
-                    st.plotly_chart(fig_exp, use_container_width=True)
-            with col_p2:
-                inc_df = df[df['type']=='Income']
-                if not inc_df.empty:
-                    fig_inc = px.pie(inc_df, values='amount', names='category',
-                                      title='Income Sources', hole=0.4,
-                                      color_discrete_sequence=px.colors.sequential.Greens)
-                    fig_inc.update_layout(template="plotly_dark", height=400)
-                    st.plotly_chart(fig_inc, use_container_width=True)
-
-            st.markdown("---")
-            st.subheader("🎯 Goal Progress")
-            if st.session_state.goal_name:
-                current_month_saving = inc_tot - exp_tot
-                goal_pct = min((current_month_saving / st.session_state.goal_amount) * 100, 100) if st.session_state.goal_amount > 0 else 0
-                cg1, cg2 = st.columns([3,1])
-                with cg1:
-                    st.progress(goal_pct / 100)
-                with cg2:
-                    st.metric("Saved", fmt(current_month_saving))
-                st.info(f"📊 {goal_pct:.1f}% towards '{st.session_state.goal_name}' ({fmt(st.session_state.goal_amount)})")
-            else:
-                st.info("Set a Savings Goal in the sidebar to track progress.")
-
-            anomalies = detect_anomalies(df)
-            if not anomalies.empty:
-                st.error(f"🚨 AI detected {len(anomalies)} suspicious transaction(s)")
-            else:
-                st.success("✅ All transactions verified by AI")
-
-    # ─── AI ANALYSIS TAB ────────────────────────────────────────────────────────────
-    with tab_ai:
-        st.header("🧠 AI Analysis & Forecasting")
-        max_forecast = 90 if st.session_state.is_pro else 14
-        if max_forecast == 14:
-            st.caption("🔒 Upgrade to Pro for 90-day forecasts")
-        forecast_days = st.slider("Forecast Horizon (Days)", min_value=7, max_value=max_forecast, value=min(30, max_forecast), step=7)
-        if df.empty or len(df) < 3:
-            st.info("📊 Add 3+ transactions to unlock AI forecasting")
-        else:
-            acc = train_cat_model(df)
-            inc_f, exp_f = forecast_next_30(df, forecast_days)
-            exp_df = df[df['type']=='Expense']
-            top_cat = exp_df.groupby('category')['amount'].sum().idxmax() if not exp_df.empty else "N/A"
-
-            k1, k2, k3, k4 = st.columns(4)
-            k1.metric("📈 Net Balance", fmt((df[df['type']=='Income']['amount'].sum() - exp_tot)))
-            k2.metric("📅 Income Forecast", fmt(inc_f))
-            k3.metric("📅 Expense Forecast", fmt(exp_f))
-            k4.metric("🏷️ Top Category", top_cat)
-
-            if acc:
-                st.caption(f"🤖 Category model accuracy: {acc:.1%}")
-
-            st.markdown("---")
-            st.subheader("📉 Income vs Expense: Historical Trend + May 2026 Forecast")
-
-            df_ts = df.copy()
-            df_ts['date'] = pd.to_datetime(df_ts['date'])
-            monthly_data = []
-            for ttype in ['Income', 'Expense']:
-                sub = df_ts[df_ts['type']==ttype]
-                if not sub.empty:
-                    grp = sub.groupby(sub['date'].dt.to_period('M'))['amount'].sum().reset_index()
-                    for _, row in grp.iterrows():
-                        monthly_data.append({'Month': str(row['date']), 'Type': ttype, 'Amount': row['amount']})
-
-            if monthly_data:
-                monthly_df = pd.DataFrame(monthly_data)
-                fig = go.Figure()
-                for ttype, col in [('Income','#00d4ff'), ('Expense','#ff4b4b')]:
-                    sub = monthly_df[monthly_df['Type']==ttype]
-                    fig.add_trace(go.Scatter(x=sub['Month'], y=sub['Amount'], mode='lines+markers',
-                                             name=f'{ttype} Historical', line=dict(color=col, width=3)))
-                forecast_month = "May 2026"
-                fig.add_trace(go.Scatter(x=[forecast_month], y=[inc_f], mode='markers',
-                                         name='Income Forecast', marker=dict(color='#00d4ff', size=12, symbol='star')))
-                fig.add_trace(go.Scatter(x=[forecast_month], y=[exp_f], mode='markers',
-                                         name='Expense Forecast', marker=dict(color='#ff4b4b', size=12, symbol='star')))
-                fig.update_layout(
-                    title="Historical Trend with May 2026 Projection",
-                    xaxis_title="Month", yaxis_title=f"Amount ({CURRENCY})",
-                    template="plotly_dark", hovermode="x unified"
-                )
-                st.plotly_chart(fig, use_container_width=True)
-
-            st.markdown("---")
-            st.subheader("💡 AI Advisory (50/30/20 Rule)")
-            tips = gen_advisory(df, st.session_state.monthly_budget,
-                                st.session_state.goal_name, st.session_state.goal_amount,
-                                inc_f, exp_f)
-            for tip in tips:
-                if "✅" in tip:
-                    st.success(tip)
-                elif "🚨" in tip or "Budget exceeded" in tip:
-                    st.error(tip)
-                else:
-                    st.info(tip)
-
-    # ─── HISTORY TAB ───────────────────────────────────────────────────────────────
-    with tab_history:
-        st.header("📝 Transaction History")
-
-        with st.form("add_txn", clear_on_submit=True):
-            c1, c2 = st.columns(2)
-            with c1:
-                date = st.date_input("Date", datetime.now())
-                amount = st.number_input("Amount (₹)", min_value=0.01, format="%.2f")
-                # Modern toggle for type selection
-                ttype = st.segmented_control("Type", ["Expense", "Income"], default="Expense")
-            
-            with c2:
-                desc = st.text_input("Description")
-                
-                # ─── DYNAMIC CATEGORY LOGIC ───
-                # Switch the list based on the toggle state
-                if ttype == "Income":
-                    category_options = INCOME_CATS # ["Salary", "Freelance", "Bonus", etc.]
-                else:
-                    category_options = EXPENSE_CATS # ["Food", "Transport", "Bills", etc.]
-                    
-                # Optional: Auto-suggest category if AI model is trained
-                suggested, conf = predict_category(desc) if desc else ("Uncategorized", 0.0)
-                cat_idx = category_options.index(suggested) if suggested in category_options else 0
-                
-                # Display the filtered dropdown
-                category = st.selectbox("Category", category_options, index=cat_idx)
-
-            if suggested != "Uncategorized" and desc:
-                if conf >= 0.6:
-                    st.info(f"🤖 AI suggests: **{suggested}** ({conf:.0%})")
-                else:
-                    st.warning(f"⚠️ Low confidence: {conf:.0%}")
-
-            submitted = st.form_submit_button("➕ Add Transaction", use_container_width=True)
-            if submitted:
-                if amount <= 0 or not desc:
-                    st.error("Amount & description required")
-                else:
-                    save_txn(date, amount, category, ttype, desc, uid)
-                    train_cat_model(df)
-                    st.success("✅ Added!")
-                    st.cache_data.clear()
-                    st.rerun()
+        m1, m2, m3 = st.columns(3)
+        m1.metric("💰 Net Balance", fmt(net))
+        m2.metric("📥 Total Income", fmt(inc_tot))
+        m3.metric("📤 Total Expense", fmt(exp_tot))
 
         st.markdown("---")
-        st.subheader("🔍 Search & Filter")
-        col_s1, col_s2 = st.columns([3,1])
-        with col_s1:
-            search = st.text_input("Search description", placeholder="Type keywords...")
-        with col_s2:
-            filter_type = st.segmented_control("Type", ["All", "Income", "Expense"], default="All")
+        st.subheader("📈 Category Breakdown")
 
-        if df.empty:
-            st.info("No transactions yet")
+        col_p1, col_p2 = st.columns(2)
+        with col_p1:
+            exp_df = df[df['type']=='Expense']
+            if not exp_df.empty:
+                fig_exp = px.pie(exp_df, values='amount', names='category',
+                                  title='Expense Breakdown', hole=0.4,
+                                  color_discrete_sequence=px.colors.sequential.Reds)
+                fig_exp.update_layout(template="plotly_dark", height=400)
+                st.plotly_chart(fig_exp, use_container_width=True)
+        with col_p2:
+            inc_df = df[df['type']=='Income']
+            if not inc_df.empty:
+                fig_inc = px.pie(inc_df, values='amount', names='category',
+                                  title='Income Sources', hole=0.4,
+                                  color_discrete_sequence=px.colors.sequential.Greens)
+                fig_inc.update_layout(template="plotly_dark", height=400)
+                st.plotly_chart(fig_inc, use_container_width=True)
+
+        st.markdown("---")
+        st.subheader("🎯 Goal Progress")
+        if st.session_state.goal_name:
+            current_month_saving = inc_tot - exp_tot
+            goal_pct = min((current_month_saving / st.session_state.goal_amount) * 100, 100) if st.session_state.goal_amount > 0 else 0
+            cg1, cg2 = st.columns([3,1])
+            with cg1:
+                st.progress(goal_pct / 100)
+            with cg2:
+                st.metric("Saved", fmt(current_month_saving))
+            st.info(f"📊 {goal_pct:.1f}% towards '{st.session_state.goal_name}' ({fmt(st.session_state.goal_amount)})")
         else:
-            df_disp = df.copy()
-            df_disp['date'] = pd.to_datetime(df_disp['date']).dt.date
+            st.info("Set a Savings Goal in the sidebar to track progress.")
 
-            if search:
-                df_disp = df_disp[df_disp['description'].str.contains(search, case=False, na=False)]
-            if filter_type != "All":
-                df_disp = df_disp[df_disp['type'] == filter_type]
+        anomalies = detect_anomalies(df)
+        if not anomalies.empty:
+            st.error(f"🚨 AI detected {len(anomalies)} suspicious transaction(s)")
+        else:
+            st.success("✅ All transactions verified by AI")
 
-            anomalies = detect_anomalies(df_disp)
-            df_disp['AI Status'] = '✅ Verified'
-            if not anomalies.empty and 'id' in anomalies.columns:
-                anomaly_ids = anomalies['id'].tolist()
-                df_disp.loc[df_disp['id'].isin(anomaly_ids), 'AI Status'] = '🚨 Anomaly'
+# ─── AI ANALYSIS TAB ────────────────────────────────────────────────────────────
+with tab_ai:
+    st.header("🧠 AI Analysis & Forecasting")
+    max_forecast = 90 if st.session_state.is_pro else 14
+    if max_forecast == 14:
+        st.caption("🔒 Upgrade to Pro for 90-day forecasts")
+    forecast_days = st.slider("Forecast Horizon (Days)", min_value=7, max_value=max_forecast, value=min(30, max_forecast), step=7)
+    if df.empty or len(df) < 3:
+        st.info("📊 Add 3+ transactions to unlock AI forecasting")
+    else:
+        acc = train_cat_model(df)
+        inc_f, exp_f = forecast_next_30(df, forecast_days)
+        exp_df = df[df['type']=='Expense']
+        top_cat = exp_df.groupby('category')['amount'].sum().idxmax() if not exp_df.empty else "N/A"
 
-            df_disp['amount'] = df_disp['amount'].apply(fmt)
+        k1, k2, k3, k4 = st.columns(4)
+        k1.metric("📈 Net Balance", fmt((df[df['type']=='Income']['amount'].sum() - exp_tot)))
+        k2.metric("📅 Income Forecast", fmt(inc_f))
+        k3.metric("📅 Expense Forecast", fmt(exp_f))
+        k4.metric("🏷️ Top Category", top_cat)
 
-            display_cols = ['date', 'description', 'category', 'type', 'amount', 'AI Status']
-            st.dataframe(df_disp[display_cols], use_container_width=True, height=400)
+        if acc:
+            st.caption(f"🤖 Category model accuracy: {acc:.1%}")
 
-            # Export PDF Report
-            if FPDF and not df_disp.empty:
-                def create_pdf(df):
-                    pdf = FPDF()
-                    pdf.add_page()
-                    pdf.set_font("Arial", 'B', 16)
-                    pdf.cell(190, 10, "SmartSpend AI - Financial Report", ln=True, align='C')
-                    pdf.set_font("Arial", size=10)
-                    pdf.cell(190, 10, f"Generated on: {datetime.now().strftime('%Y-%m-%d')}", ln=True, align='C')
-                    pdf.ln(10)
-                    pdf.set_fill_color(0, 212, 255)
-                    pdf.cell(30, 10, "Date", 1, 0, 'C', True)
-                    pdf.cell(80, 10, "Description", 1, 0, 'C', True)
-                    pdf.cell(40, 10, "Category", 1, 0, 'C', True)
-                    pdf.cell(40, 10, "Amount", 1, 1, 'C', True)
-                    for _, row in df.head(20).iterrows():
-                        # 1. Clean the amount string to use 'Rs.' instead of '₹'
-                        clean_amount = str(row['amount']).replace('₹', 'Rs. ') 
-                        # 2. Clean the description to remove any non-Latin characters
-                        clean_desc = str(row['description']).encode('latin-1', 'ignore').decode('latin-1')
-                        # 3. Update the cell calls
-                        pdf.cell(30, 10, str(row['date']), 1)
-                        pdf.cell(80, 10, clean_desc[:30], 1)
-                        pdf.cell(40, 10, str(row['category']), 1)
-                        pdf.cell(40, 10, clean_amount, 1, 1)
-                    return pdf.output(dest='S').encode('latin-1')
-                
-                pdf_data = create_pdf(df_disp)
-                st.download_button(
-                    label="📥 Download PDF Report",
-                    data=pdf_data,
-                    file_name="SmartSpend_Report.pdf",
-                    mime="application/pdf",
-                    use_container_width=True
-                )
+        st.markdown("---")
+        st.subheader("📉 Income vs Expense: Historical Trend + May 2026 Forecast")
 
-            st.markdown("---")
-            st.subheader("🗑️ Delete Transaction")
-            col_d1, col_d2 = st.columns([3,1])
-            with col_d1:
-                del_id = st.text_input("Document ID", key="del_id")
-            with col_d2:
-                st.write("")
-                if st.button("Delete", key="del_btn"):
-                    if del_id:
-                        if delete_txn(del_id, uid):
-                            st.success(f"✅ Deleted {del_id}")
-                            st.cache_data.clear()
-                            st.rerun()
-                    else:
-                        st.error("Enter a document ID")
+        df_ts = df.copy()
+        df_ts['date'] = pd.to_datetime(df_ts['date'])
+        monthly_data = []
+        for ttype in ['Income', 'Expense']:
+            sub = df_ts[df_ts['type']==ttype]
+            if not sub.empty:
+                grp = sub.groupby(sub['date'].dt.to_period('M'))['amount'].sum().reset_index()
+                for _, row in grp.iterrows():
+                    monthly_data.append({'Month': str(row['date']), 'Type': ttype, 'Amount': row['amount']})
 
-    # ─── SCAN TAB (UPLOAD ONLY) ────────────────────────────────────────────────────
-    with tab_scan:
-        st.header("📷 Receipt Scanner (OCR)")
-        st.info("💡 Tip: Use your phone's camera app to take a high-quality photo, then upload it here for the best AI accuracy.")
+        if monthly_data:
+            monthly_df = pd.DataFrame(monthly_data)
+            fig = go.Figure()
+            for ttype, col in [('Income','#00d4ff'), ('Expense','#ff4b4b')]:
+                sub = monthly_df[monthly_df['Type']==ttype]
+                fig.add_trace(go.Scatter(x=sub['Month'], y=sub['Amount'], mode='lines+markers',
+                                         name=f'{ttype} Historical', line=dict(color=col, width=3)))
+            forecast_month = "May 2026"
+            fig.add_trace(go.Scatter(x=[forecast_month], y=[inc_f], mode='markers',
+                                     name='Income Forecast', marker=dict(color='#00d4ff', size=12, symbol='star')))
+            fig.add_trace(go.Scatter(x=[forecast_month], y=[exp_f], mode='markers',
+                                     name='Expense Forecast', marker=dict(color='#ff4b4b', size=12, symbol='star')))
+            fig.update_layout(
+                title="Historical Trend with May 2026 Projection",
+                xaxis_title="Month", yaxis_title=f"Amount ({CURRENCY})",
+                template="plotly_dark", hovermode="x unified"
+            )
+            st.plotly_chart(fig, use_container_width=True)
 
-        # File uploader replacing the live camera
-        uploaded_file = st.file_uploader(
-            "📁 Upload Receipt Image", 
-            type=['jpg', 'jpeg', 'png'],
-            help="Max size: 20MB. Native camera photos work best!"
-        )
+        st.markdown("---")
+        st.subheader("💡 AI Advisory (50/30/20 Rule)")
+        tips = gen_advisory(df, st.session_state.monthly_budget,
+                            st.session_state.goal_name, st.session_state.goal_amount,
+                            inc_f, exp_f)
+        for tip in tips:
+            if "✅" in tip:
+                st.success(tip)
+            elif "🚨" in tip or "Budget exceeded" in tip:
+                st.error(tip)
+            else:
+                st.info(tip)
 
-        if uploaded_file:
-            # Process the uploaded image
-            img = Image.open(uploaded_file)
-            st.image(img, caption="Uploaded Receipt", use_container_width=True)
+# ─── HISTORY TAB ───────────────────────────────────────────────────────────────
+with tab_history:
+    st.header("📝 Transaction History")
+
+    with st.form("add_txn", clear_on_submit=True):
+        c1, c2 = st.columns(2)
+        with c1:
+            date = st.date_input("Date", datetime.now())
+            amount = st.number_input("Amount (₹)", min_value=0.01, format="%.2f")
+            # Modern toggle for type selection
+            ttype = st.segmented_control("Type", ["Expense", "Income"], default="Expense")
+        
+        with c2:
+            desc = st.text_input("Description")
             
-            # Trigger OCR
-            with st.spinner("🤖 AI is reading receipt..."):
-                ocr_result = perform_ocr(img)
-                st.session_state.ocr_result = ocr_result
-
-            st.markdown("### 📋 Extraction Result")
-            if 'ocr_result' in st.session_state:
-                res = st.session_state.ocr_result
-                st.write(f"**Vendor:** {res.get('vendor','Unknown')}")
-                st.write(f"**Amount:** {fmt(res.get('amount')) if res.get('amount') else 'Not detected'}")
-                with st.expander("📄 View Full Extracted Text"):
-                    st.text(res.get('text', ''))
-
-            # Save section
-            st.markdown("---")
-            st.subheader("✅ Confirm & Save Transaction")
-            
-            ocr = st.session_state.ocr_result
-            amount_val = ocr.get('amount') or 0.0
-            vendor_name = ocr.get('vendor') or 'Unknown'
-            category_guess = ocr.get('category') or 'Other'
-            
-            # Centered confirmation form
-            save_col1, save_col2, save_col3 = st.columns([1, 2, 1])
-            with save_col2:
-                save_date = st.date_input("Date", datetime.now(), key="scan_date")
-                save_amount = st.number_input("Amount (₹)", value=float(amount_val), format="%.2f", key="scan_amount")
-                save_desc = st.text_input("Description", value=f"Receipt - {vendor_name}", key="scan_desc")
+            # ─── DYNAMIC CATEGORY LOGIC ───
+            # Switch the list based on the toggle state
+            if ttype == "Income":
+                category_options = INCOME_CATS # ["Salary", "Freelance", "Bonus", etc.]
+            else:
+                category_options = EXPENSE_CATS # ["Food", "Transport", "Bills", etc.]
                 
-                col_t1, col_t2 = st.columns(2)
-                with col_t1:
-                    ttype = st.segmented_control("Type", ["Expense", "Income"], default="Expense", key="scan_type")
-                with col_t2:
-                    cat_opts = INCOME_CATS if ttype == "Income" else EXPENSE_CATS
-                    save_category = st.selectbox(
-                        "Category", 
-                        cat_opts, 
-                        index=cat_opts.index(category_guess) if category_guess in cat_opts else 0,
-                        key="scan_cat"
-                    )
-                
-                if st.button("💾 Save to Cloud", use_container_width=True):
-                    if save_amount > 0 and save_desc:
-                        save_txn(save_date, save_amount, save_category, ttype, save_desc, uid)
-                        st.success("✅ Transaction saved!")
-                        # Clear OCR cache
-                        if 'ocr_result' in st.session_state:
-                            del st.session_state['ocr_result']
+            # Optional: Auto-suggest category if AI model is trained
+            suggested, conf = predict_category(desc) if desc else ("Uncategorized", 0.0)
+            cat_idx = category_options.index(suggested) if suggested in category_options else 0
+            
+            # Display the filtered dropdown
+            category = st.selectbox("Category", category_options, index=cat_idx)
+
+        if suggested != "Uncategorized" and desc:
+            if conf >= 0.6:
+                st.info(f"🤖 AI suggests: **{suggested}** ({conf:.0%})")
+            else:
+                st.warning(f"⚠️ Low confidence: {conf:.0%}")
+
+        submitted = st.form_submit_button("➕ Add Transaction", use_container_width=True)
+        if submitted:
+            if amount <= 0 or not desc:
+                st.error("Amount & description required")
+            else:
+                save_txn(date, amount, category, ttype, desc, uid)
+                train_cat_model(df)
+                st.success("✅ Added!")
+                st.cache_data.clear()
+                st.rerun()
+
+    st.markdown("---")
+    st.subheader("🔍 Search & Filter")
+    col_s1, col_s2 = st.columns([3,1])
+    with col_s1:
+        search = st.text_input("Search description", placeholder="Type keywords...")
+    with col_s2:
+        filter_type = st.segmented_control("Type", ["All", "Income", "Expense"], default="All")
+
+    if df.empty:
+        st.info("No transactions yet")
+    else:
+        df_disp = df.copy()
+        df_disp['date'] = pd.to_datetime(df_disp['date']).dt.date
+
+        if search:
+            df_disp = df_disp[df_disp['description'].str.contains(search, case=False, na=False)]
+        if filter_type != "All":
+            df_disp = df_disp[df_disp['type'] == filter_type]
+
+        anomalies = detect_anomalies(df_disp)
+        df_disp['AI Status'] = '✅ Verified'
+        if not anomalies.empty and 'id' in anomalies.columns:
+            anomaly_ids = anomalies['id'].tolist()
+            df_disp.loc[df_disp['id'].isin(anomaly_ids), 'AI Status'] = '🚨 Anomaly'
+
+        df_disp['amount'] = df_disp['amount'].apply(fmt)
+
+        display_cols = ['date', 'description', 'category', 'type', 'amount', 'AI Status']
+        st.dataframe(df_disp[display_cols], use_container_width=True, height=400)
+
+        # Export PDF Report
+        if FPDF and not df_disp.empty:
+            def create_pdf(df):
+                pdf = FPDF()
+                pdf.add_page()
+                pdf.set_font("Arial", 'B', 16)
+                pdf.cell(190, 10, "SmartSpend AI - Financial Report", ln=True, align='C')
+                pdf.set_font("Arial", size=10)
+                pdf.cell(190, 10, f"Generated on: {datetime.now().strftime('%Y-%m-%d')}", ln=True, align='C')
+                pdf.ln(10)
+                pdf.set_fill_color(0, 212, 255)
+                pdf.cell(30, 10, "Date", 1, 0, 'C', True)
+                pdf.cell(80, 10, "Description", 1, 0, 'C', True)
+                pdf.cell(40, 10, "Category", 1, 0, 'C', True)
+                pdf.cell(40, 10, "Amount", 1, 1, 'C', True)
+                for _, row in df.head(20).iterrows():
+                    # 1. Clean the amount string to use 'Rs.' instead of '₹'
+                    clean_amount = str(row['amount']).replace('₹', 'Rs. ') 
+                    # 2. Clean the description to remove any non-Latin characters
+                    clean_desc = str(row['description']).encode('latin-1', 'ignore').decode('latin-1')
+                    # 3. Update the cell calls
+                    pdf.cell(30, 10, str(row['date']), 1)
+                    pdf.cell(80, 10, clean_desc[:30], 1)
+                    pdf.cell(40, 10, str(row['category']), 1)
+                    pdf.cell(40, 10, clean_amount, 1, 1)
+                return pdf.output(dest='S').encode('latin-1')
+            
+            pdf_data = create_pdf(df_disp)
+            st.download_button(
+                label="📥 Download PDF Report",
+                data=pdf_data,
+                file_name="SmartSpend_Report.pdf",
+                mime="application/pdf",
+                use_container_width=True
+            )
+
+        st.markdown("---")
+        st.subheader("🗑️ Delete Transaction")
+        col_d1, col_d2 = st.columns([3,1])
+        with col_d1:
+            del_id = st.text_input("Document ID", key="del_id")
+        with col_d2:
+            st.write("")
+            if st.button("Delete", key="del_btn"):
+                if del_id:
+                    if delete_txn(del_id, uid):
+                        st.success(f"✅ Deleted {del_id}")
                         st.cache_data.clear()
                         st.rerun()
-                    else:
-                        st.error("Amount & description required")
+                else:
+                    st.error("Enter a document ID")
+
+# ─── SCAN TAB (UPLOAD ONLY) ────────────────────────────────────────────────────
+with tab_scan:
+    st.header("📷 Receipt Scanner (OCR)")
+    st.info("💡 Tip: Use your phone's camera app to take a high-quality photo, then upload it here for the best AI accuracy.")
+
+    # File uploader replacing the live camera
+    uploaded_file = st.file_uploader(
+        "📁 Upload Receipt Image", 
+        type=['jpg', 'jpeg', 'png'],
+        help="Max size: 20MB. Native camera photos work best!"
+    )
+
+    if uploaded_file:
+        # Process the uploaded image
+        img = Image.open(uploaded_file)
+        st.image(img, caption="Uploaded Receipt", use_container_width=True)
+        
+        # Trigger OCR
+        with st.spinner("🤖 AI is reading receipt..."):
+            ocr_result = perform_ocr(img)
+            st.session_state.ocr_result = ocr_result
+
+        st.markdown("### 📋 Extraction Result")
+        if 'ocr_result' in st.session_state:
+            res = st.session_state.ocr_result
+            st.write(f"**Vendor:** {res.get('vendor','Unknown')}")
+            st.write(f"**Amount:** {fmt(res.get('amount')) if res.get('amount') else 'Not detected'}")
+            with st.expander("📄 View Full Extracted Text"):
+                st.text(res.get('text', ''))
+
+        # Save section
+        st.markdown("---")
+        st.subheader("✅ Confirm & Save Transaction")
+        
+        ocr = st.session_state.ocr_result
+        amount_val = ocr.get('amount') or 0.0
+        vendor_name = ocr.get('vendor') or 'Unknown'
+        category_guess = ocr.get('category') or 'Other'
+        
+        # Centered confirmation form
+        save_col1, save_col2, save_col3 = st.columns([1, 2, 1])
+        with save_col2:
+            save_date = st.date_input("Date", datetime.now(), key="scan_date")
+            save_amount = st.number_input("Amount (₹)", value=float(amount_val), format="%.2f", key="scan_amount")
+            save_desc = st.text_input("Description", value=f"Receipt - {vendor_name}", key="scan_desc")
+            
+            col_t1, col_t2 = st.columns(2)
+            with col_t1:
+                ttype = st.segmented_control("Type", ["Expense", "Income"], default="Expense", key="scan_type")
+            with col_t2:
+                cat_opts = INCOME_CATS if ttype == "Income" else EXPENSE_CATS
+                save_category = st.selectbox(
+                    "Category", 
+                    cat_opts, 
+                    index=cat_opts.index(category_guess) if category_guess in cat_opts else 0,
+                    key="scan_cat"
+                )
+            
+            if st.button("💾 Save to Cloud", use_container_width=True):
+                if save_amount > 0 and save_desc:
+                    save_txn(save_date, save_amount, save_category, ttype, save_desc, uid)
+                    st.success("✅ Transaction saved!")
+                    # Clear OCR cache
+                    if 'ocr_result' in st.session_state:
+                        del st.session_state['ocr_result']
+                    st.cache_data.clear()
+                    st.rerun()
+                else:
+                    st.error("Amount & description required")
