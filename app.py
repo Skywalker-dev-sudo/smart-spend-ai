@@ -735,40 +735,62 @@ with st.sidebar:
 
 # ─── ADMIN PAGE LOGIC (SEPARATE FROM SIDEBAR) ────────────────────────────────
 if page == "Admin Suite":
+    # Security Check: Only admins can access
+    db = get_db()
+    if db:
+        meta_doc = db.collection('users').document(st.session_state.uid).collection('_meta').document('auth').get()
+        if meta_doc.exists:
+            role = meta_doc.to_dict().get('role', 'user')
+            if role != 'admin':
+                st.error("🚫 Access Denied: Admin privileges required.")
+                st.stop()
+    
     st.title("👑 Global Administrator Suite")
     db = get_db()
     
     if db:
-        # 1. Fetch based on the sub-collection presence
-        # We query the root collection 'users' but must handle the 'virtual' documents
-        user_refs = db.collection('users').list_documents() # list_documents finds placeholders
-        all_refs = list(user_refs)
+        # Fetch all user references
+        user_refs = list(db.collection('users').list_documents())
         
-        a1, a2, a3 = st.columns(3)
-        a1.metric("👥 Total Users", len(all_refs)) # This will now show the real count
-        a2.metric("🟢 Database", "Firestore Live")
-        a3.metric("💻 Hardware", "ASUS TUF Node")
-
+        # Calculate Real-Time Metrics
         user_details = []
-        for ref in all_refs[:10]: # Limit for performance
-            # Fetch the actual email from the _meta sub-collection
-            meta_doc = ref.collection('_meta').document('auth').get()
-            email = meta_doc.to_dict().get('email', 'System User') if meta_doc.exists else "Placeholder ID"
+        pro_count = 0
+        for ref in user_refs:
+            meta = ref.collection('_meta').document('auth').get()
+            data = meta.to_dict() if meta.exists else {}
+            is_pro = data.get('plan') == 'Premium'
+            if is_pro: pro_count += 1
             
             user_details.append({
-                "User ID": ref.id,
-                "Email/Name": email,
-                "Plan": "Premium" if ref.id == st.session_state.uid and st.session_state.is_pro else "Free"
+                "UID": ref.id,
+                "Email": data.get('email', 'Guest'),
+                "Plan": "Premium" if is_pro else "Free",
+                "Role": data.get('role', 'User')
             })
 
+        m1, m2, m3 = st.columns(3)
+        m1.metric("👥 Total Users", len(user_refs))
+        m2.metric("🆓 Free Tier", len(user_refs) - pro_count)
+        m3.metric("💎 Pro Tier", pro_count)
+
+        st.markdown("---")
         if user_details:
             st.table(pd.DataFrame(user_details))
+
+        st.markdown("---")
+        st.subheader("🛠️ Promote User to Admin")
+        # Dropdown to select by Email for clarity
+        email_map = {u['Email']: u['UID'] for u in user_details}
+        target_email = st.selectbox("Select User Email", options=list(email_map.keys()))
+        
+        if st.button("🚀 Grant Administrator Privileges", use_container_width=True):
+            target_uid = email_map[target_email]
+            db.collection('users').document(target_uid).collection('_meta').document('auth').update({
+                'role': 'admin'
+            })
+            st.success(f"✅ {target_email} has been promoted!")
+            st.balloons()
     st.stop() # Prevents dashboard from loading on the Admin page
-
-# ─── USER DASHBOARD (ONLY SHOWS IF page == "My Dashboard") ───────────────────
-if page == "My Dashboard":
-    df = fetch_txns(uid)
-
     # ─── TABS (MOBILE STACK) ────────────────────────────────────────────────────────
     tab_overview, tab_ai, tab_history, tab_scan = st.tabs([
         "📊 Overview", "🧠 AI Analysis", "📝 History", "📷 Scan"
@@ -908,13 +930,25 @@ if page == "My Dashboard":
             with c1:
                 date = st.date_input("Date", datetime.now())
                 amount = st.number_input("Amount (₹)", min_value=0.01, format="%.2f")
+                # Modern toggle for type selection
                 ttype = st.segmented_control("Type", ["Expense", "Income"], default="Expense")
+            
             with c2:
                 desc = st.text_input("Description")
+                
+                # ─── DYNAMIC CATEGORY LOGIC ───
+                # Switch the list based on the toggle state
+                if ttype == "Income":
+                    category_options = INCOME_CATS # ["Salary", "Freelance", "Bonus", etc.]
+                else:
+                    category_options = EXPENSE_CATS # ["Food", "Transport", "Bills", etc.]
+                    
+                # Optional: Auto-suggest category if AI model is trained
                 suggested, conf = predict_category(desc) if desc else ("Uncategorized", 0.0)
-                category_opts = INCOME_CATS if ttype == "Income" else EXPENSE_CATS
-                cat_idx = category_opts.index(suggested) if suggested in category_opts else 0
-                category = st.selectbox("Category", category_opts, index=cat_idx)
+                cat_idx = category_options.index(suggested) if suggested in category_options else 0
+                
+                # Display the filtered dropdown
+                category = st.selectbox("Category", category_options, index=cat_idx)
 
             if suggested != "Uncategorized" and desc:
                 if conf >= 0.6:
@@ -979,10 +1013,15 @@ if page == "My Dashboard":
                     pdf.cell(40, 10, "Category", 1, 0, 'C', True)
                     pdf.cell(40, 10, "Amount", 1, 1, 'C', True)
                     for _, row in df.head(20).iterrows():
+                        # 1. Clean the amount string to use 'Rs.' instead of '₹'
+                        clean_amount = str(row['amount']).replace('₹', 'Rs. ') 
+                        # 2. Clean the description to remove any non-Latin characters
+                        clean_desc = str(row['description']).encode('latin-1', 'ignore').decode('latin-1')
+                        # 3. Update the cell calls
                         pdf.cell(30, 10, str(row['date']), 1)
-                        pdf.cell(80, 10, str(row['description'])[:30], 1)
+                        pdf.cell(80, 10, clean_desc[:30], 1)
                         pdf.cell(40, 10, str(row['category']), 1)
-                        pdf.cell(40, 10, f"Rs. {row['amount']}", 1, 1)
+                        pdf.cell(40, 10, clean_amount, 1, 1)
                     return pdf.output(dest='S').encode('latin-1')
                 
                 pdf_data = create_pdf(df_disp)
