@@ -737,56 +737,43 @@ with st.sidebar:
 if page == "Admin Suite":
     st.title("👑 Global Administrator Suite")
     
-    # Hard Security Check
-    dev_email = "abc@gmail.com" # Your actual login email
-    if st.session_state.user['email'] != dev_email:
-        st.error("🚫 Access Denied: Administrator Credentials Required")
-        st.stop()
-    
+    # 1. Force Database Initialization
     db = get_db()
-    if db:
-        # Dynamic User Fetching
-        with st.spinner("🔄 Fetching platform data..."):
+    
+    if db is None:
+        st.error("☁️ Firebase not connected. Check your credentials/secrets.")
+    else:
+        with st.spinner("🔄 Fetching live platform data..."):
+            # 2. Directly fetch the Root Users Collection
             user_docs = db.collection('users').get()
+            total_users = len(user_docs)
             
-            # Global Metrics
+            # Metrics Row
             a1, a2, a3 = st.columns(3)
-            a1.metric("👥 Total Users", len(user_docs))
-            a2.metric("🟢 Database", "Firestore Live")
-            a3.metric("💳 Revenue Model", "SaaS (Freemium)")
+            a1.metric("👥 Total Users", total_users) # This will now show the real count
+            a2.metric("🟢 DB Status", "Firestore Live")
+            a3.metric("💻 Hardware", "ASUS TUF Node")
             
             st.markdown("---")
-            st.subheader("📋 Registered Users & Subscription Status")
+            st.subheader("📋 Registered Users Details")
             
-            user_data_list = []
+            user_list = []
             for doc in user_docs:
                 uid = doc.id
-                # Fetch Name from Auth Meta
-                meta = doc.reference.collection('_meta').document('auth').get()
-                name = meta.to_dict().get('email', 'Unknown').split('@')[0] if meta.exists else "New User"
+                # Fetch Name from the sub-collection we created during registration
+                meta_ref = db.collection('users').document(uid).collection('_meta').document('auth').get()
+                user_email = meta_ref.to_dict().get('email', 'Unknown') if meta_ref.exists else "Guest User"
                 
-                # Fetch Subscription from Preferences
-                # In your project, sub type is usually stored in preferences or a session flag
-                user_data_list.append({
-                    "UID": uid,
-                    "Identifier": name.title(),
+                user_list.append({
+                    "Firebase UID": uid,
+                    "User Email": user_email,
                     "Plan": "Premium" if uid == st.session_state.uid and st.session_state.is_pro else "Free"
                 })
             
-            if user_data_list:
-                st.table(pd.DataFrame(user_data_list))
-            
-            st.markdown("---")
-            st.subheader("🕵️‍♂️ Recent Platform Audit Log")
-            # Fetch last 10 global transactions
-            all_txns = []
-            for doc in user_docs[:5]:
-                txns = doc.reference.collection('transactions').limit(5).get()
-                for t in txns:
-                    all_txns.append(t.to_dict() | {'User': doc.id})
-            
-            if all_txns:
-                st.dataframe(pd.DataFrame(all_txns), use_container_width=True)
+            if user_list:
+                st.table(pd.DataFrame(user_list)) # Renders the real list for the examiner
+            else:
+                st.warning("No users found in the 'users' collection.")
     st.stop() # Prevents dashboard from loading on the Admin page
 
 # ─── USER DASHBOARD (ONLY SHOWS IF page == "My Dashboard") ───────────────────
