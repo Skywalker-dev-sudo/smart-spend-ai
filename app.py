@@ -48,32 +48,59 @@ if os.name == 'nt':
 # ─── RESPONSIVE THEME ──────────────────────────────────────────────────────────
 THEME_CSS = """
 <style>
-    /* 1. Kill the ghost text in the header and sidebar */
-    button[kind="header"], 
-    .stSidebar [data-testid="stSidebarNav"] button,
-    section[data-testid="stSidebar"] .stExpander summary {
-        font-size: 0px !important;
-        color: transparent !important;
+    /* 1. Global Background & Glassmorphism */
+    .stApp {
+        background: radial-gradient(circle at top right, #1e1e2f, #0f0f1a) !important;
     }
 
-    /* 2. Restore the actual labels we need */
-    section[data-testid="stSidebar"] .stExpander summary span {
-        font-size: 16px !important;
-        visibility: visible !important;
-        color: #e0e6f0 !important;
+    /* 2. Pro-Style Metric Cards */
+    div[data-testid="stMetric"] {
+        background: rgba(255, 255, 255, 0.05) !important;
+        backdrop-filter: blur(10px) !important;
+        border-radius: 24px !important; /* Extra rounded like the template */
+        border: 1px solid rgba(255, 255, 255, 0.1) !important;
+        padding: 24px !important;
+        box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37) !important;
     }
 
-    /* 3. Force the Camera to be large and clear */
-    div[data-testid="stCameraInput"] > div {
-        width: 100% !important;
-        min-height: 600px !important;
+    /* 3. Rounded Tabs & Clean Navigation */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 12px !important;
+        background-color: transparent !important;
     }
-    video {
-        object-fit: cover !important;
-        width: 100% !important;
-        min-height: 600px !important;
-        border-radius: 12px;
+    .stTabs [data-baseweb="tab"] {
+        background: rgba(255, 255, 255, 0.03) !important;
+        border-radius: 12px !important;
+        padding: 10px 20px !important;
+        border: none !important;
     }
+    .stTabs [aria-selected="true"] {
+        background: #00d4ff !important; /* Bright accent like the 'Income' toggle */
+        color: #000 !important;
+        font-weight: 700 !important;
+    }
+
+    /* 4. Styled Progress Bars (Goal Tracking) */
+    .stProgress > div > div > div > div {
+        background: linear-gradient(90deg, #00d4ff, #00ff88) !important;
+        border-radius: 10px !important;
+    }
+
+    /* 5. Custom Button Styling */
+    .stButton > button {
+        border-radius: 16px !important;
+        background: linear-gradient(145deg, #2d2d44, #1a1a2e) !important;
+        border: 1px solid #3d3d5c !important;
+        padding: 12px 24px !important;
+        transition: transform 0.2s ease !important;
+    }
+    .stButton > button:hover {
+        transform: scale(1.02) !important;
+        border-color: #00d4ff !important;
+    }
+
+    /* 6. Artifact Removal (Ghost Text Fix) */
+    button[kind="header"] { display: none !important; }
 </style>
 """
 
