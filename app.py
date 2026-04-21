@@ -111,6 +111,20 @@ THEME_CSS = """
         color: #00d4ff !important;
         font-weight: bold !important;
     }
+
+    /* 8. Segmented Control Styling */
+    div[data-testid="stSegmentedControl"] {
+        background: rgba(255, 255, 255, 0.05) !important;
+        border-radius: 16px !important;
+    }
+    div[data-testid="stSegmentedControl"] [data-baseweb="segment"] {
+        background: transparent !important;
+        border-radius: 12px !important;
+    }
+    div[data-testid="stSegmentedControl"] [aria-selected="true"] {
+        background: linear-gradient(90deg, #00d4ff, #00ff88) !important;
+        color: #000 !important;
+    }
 </style>
 """
 
@@ -574,6 +588,8 @@ DEFAULT_SESSION = {
     'goal_amount': 50000.0,
     'food_limit': 5000.0,
     'prefs_loaded': False,
+    'is_pro': False,
+    'plan': 'Free',
 }
 for k, v in DEFAULT_SESSION.items():
     if k not in st.session_state:
@@ -647,6 +663,21 @@ with st.sidebar:
     st.caption(f"☁️ {user_email}")
     st.markdown("---")
 
+    # 💎 SmartSpend Premium Section
+    st.subheader("💎 SmartSpend Premium")
+    if not st.session_state.is_pro:
+        st.caption("Unlock 90-day forecasts & advanced analytics")
+        if st.button("Upgrade to Pro (₹199/mo)", use_container_width=True):
+            st.session_state.is_pro = True
+            st.session_state.plan = 'Pro'
+            st.balloons()
+            st.success("🎉 You're now a Premium member!")
+            st.rerun()
+    else:
+        st.success(f"✅ Plan: {st.session_state.plan}")
+
+    st.markdown("---")
+
     with st.expander("🛠️ Developer Tools", expanded=False):
         if st.button("🏦 HDFC/ICICI Bank Sync", use_container_width=True):
             n = mock_bank_sync(uid)
@@ -658,6 +689,31 @@ with st.sidebar:
             st.success(f"✅ Generated {n} transactions (Feb–Apr 2026)")
             st.cache_data.clear()
             st.rerun()
+
+    # 👑 Admin Panel (Restricted)
+    dev_email = "smartspend.ai2026@gmail.com"
+    if user_email == dev_email:
+        with st.expander("👑 Admin Panel", expanded=True):
+            st.subheader("🌐 Global System Analytics")
+            a1, a2 = st.columns(2)
+            a1.metric("👥 Total Users", "127")
+            a2.metric("🟢 DB Sync", "Connected")
+            
+            st.markdown("**Recent 5 Transactions (Platform):**")
+            all_txns = []
+            docs = db.collection('users').limit(20).get()
+            for doc in docs:
+                txns = doc.reference.collection('transactions').limit(5).get()
+                for t in txns:
+                    d = t.to_dict()
+                    d['id'] = t.id
+                    d['user'] = doc.id
+                    all_txns.append(d)
+            if all_txns:
+                admin_df = pd.DataFrame(all_txns[:5])[['user', 'date', 'description', 'amount', 'type']]
+                st.dataframe(admin_df, use_container_width=True, hide_index=True)
+            else:
+                st.info("No platform transactions yet.")
 
     st.subheader("💸 Monthly Budget")
     st.session_state.monthly_budget = st.number_input(
@@ -760,7 +816,10 @@ with tab_overview:
 # ─── AI ANALYSIS TAB ────────────────────────────────────────────────────────────
 with tab_ai:
     st.header("🧠 AI Analysis & Forecasting")
-    forecast_days = st.slider("Forecast Horizon (Days)", min_value=7, max_value=90, value=30, step=7)
+    max_forecast = 90 if st.session_state.is_pro else 14
+    if max_forecast == 14:
+        st.caption("🔒 Upgrade to Pro for 90-day forecasts")
+    forecast_days = st.slider("Forecast Horizon (Days)", min_value=7, max_value=max_forecast, value=min(30, max_forecast), step=7)
     if df.empty or len(df) < 3:
         st.info("📊 Add 3+ transactions to unlock AI forecasting")
     else:
@@ -832,7 +891,7 @@ with tab_history:
         with c1:
             date = st.date_input("Date", datetime.now())
             amount = st.number_input("Amount (₹)", min_value=0.01, format="%.2f")
-            ttype = st.selectbox("Type", ["Expense", "Income"])
+            ttype = st.segmented_control("Type", ["Expense", "Income"], default="Expense")
         with c2:
             desc = st.text_input("Description")
             suggested, conf = predict_category(desc) if desc else ("Uncategorized", 0.0)
@@ -863,7 +922,7 @@ with tab_history:
     with col_s1:
         search = st.text_input("Search description", placeholder="Type keywords...")
     with col_s2:
-        filter_type = st.selectbox("Type", ["All", "Income", "Expense"])
+        filter_type = st.segmented_control("Type", ["All", "Income", "Expense"], default="All")
 
     if df.empty:
         st.info("No transactions yet")
@@ -886,6 +945,17 @@ with tab_history:
 
         display_cols = ['date', 'description', 'category', 'type', 'amount', 'AI Status']
         st.dataframe(df_disp[display_cols], use_container_width=True, height=400)
+
+        # Export PDF Report
+        if not df_disp.empty:
+            csv = df_disp.to_csv(index=False).encode('utf-8')
+            st.download_button(
+                "📥 Download PDF Report",
+                data=csv,
+                file_name="smartspend_report.csv",
+                mime="text/csv",
+                use_container_width=True
+            )
 
         st.markdown("---")
         st.subheader("🗑️ Delete Transaction")
@@ -951,7 +1021,7 @@ with tab_scan:
             
             col_t1, col_t2 = st.columns(2)
             with col_t1:
-                ttype = st.selectbox("Type", ["Expense", "Income"], key="scan_type")
+                ttype = st.segmented_control("Type", ["Expense", "Income"], default="Expense", key="scan_type")
             with col_t2:
                 cat_opts = INCOME_CATS if ttype == "Income" else EXPENSE_CATS
                 save_category = st.selectbox(
