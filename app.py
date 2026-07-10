@@ -667,7 +667,7 @@ if not st.session_state.prefs_loaded:
 with st.sidebar:
     # Temporary fix - Add this to the very top of your sidebar code
     if st.sidebar.button("🔴 EMERGENCY DATA RESTORE"):
-        st.session_state.user = {'email': "abc@gmail.com"} # Your real email
+        st.session_state.user = {'email': "dhirajbalchandani4@gmail.com"}
         st.session_state.uid = "4qjeUit6Ozg7NUuWz2Onj7rxdZ93" # Your UID from the screenshot
         st.session_state.is_pro = True
         st.rerun()
